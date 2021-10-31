@@ -40,10 +40,10 @@ standardized_dataset = standardize(dataset)
 
 
 class autoencoder_model_1(pl.LightningModule):
-    def __init__(self, input_dim, n_hidden=256, lr=1e-3):
+    def __init__(self, input_dim, n_hidden=512, lr=1e-3):
         super().__init__()
-        self.encoder = nn.Sequential(nn.Linear(input_dim, n_hidden), nn.ReLU(),nn.Linear(n_hidden, 128),nn.ReLU(),nn.Linear(128,64), nn.ReLU(), nn.Linear(64,32), nn.ReLU())
-        self.decoder = nn.Sequential(nn.Linear(32,64), nn.ReLU(), nn.Linear(64,128), nn.ReLU(), nn.Linear(128, n_hidden), nn.ReLU(), nn.Linear(n_hidden,input_dim))
+        self.encoder = nn.Sequential(nn.Linear(input_dim, n_hidden), nn.ReLU(), nn.Linear(n_hidden,128),nn.ReLU(), nn.Linear(128,64), nn.ReLU(), nn.Linear(64,32))
+        self.decoder = nn.Sequential(nn.Linear(32,64), nn.ReLU(),nn.Linear(64,128), nn.ReLU(), nn.Linear(128,n_hidden), nn.ReLU(), nn.Linear(n_hidden,input_dim))
         self.double()
         self.save_hyperparameters()
 
@@ -90,7 +90,7 @@ for fold, (train_i, valid_i) in enumerate(kFold.split(dataset)):
   train_subsample = torch.utils.data.SubsetRandomSampler(train_i)
   valid_subsample = torch.utils.data.SubsetRandomSampler(valid_i)
 
-  genotype_dataset = TensorDataset(torch.tensor(standardized_dataset, dtype=torch.float64))
+  genotype_dataset = TensorDataset(torch.tensor(dataset, dtype=torch.float64))
   train_loader = DataLoader(genotype_dataset, batch_size = 10, sampler=train_subsample)
   valid_loader = DataLoader(genotype_dataset, batch_size = 10, sampler=valid_subsample)
 
@@ -128,8 +128,8 @@ for fold, (train_i, valid_i) in enumerate(kFold.split(dataset)):
   print('Starting testing')
 
   #Save model
-  path = f"./model-fold-{fold}.pth"
-  torch.save(model.state_dict(), path)
+ # path = f"./model-fold-{fold}.pth"
+ # torch.save(model.state_dict(), path)
 
   #Evaluation per fold
   correct, total = 0,0
