@@ -40,7 +40,7 @@ standardized_dataset = standardize(dataset)
 
 
 class autoencoder_model_1(pl.LightningModule):
-    def __init__(self, input_dim, n_hidden=512, lr=1e-3):
+    def __init__(self, input_dim, n_hidden=256, lr=1e-3):
         super().__init__()
         self.encoder = nn.Sequential(nn.Linear(input_dim, n_hidden), nn.ReLU(), nn.Linear(n_hidden,128),nn.ReLU(), nn.Linear(128,64), nn.ReLU(), nn.Linear(64,32))
         self.decoder = nn.Sequential(nn.Linear(32,64), nn.ReLU(),nn.Linear(64,128), nn.ReLU(), nn.Linear(128,n_hidden), nn.ReLU(), nn.Linear(n_hidden,input_dim))
@@ -81,7 +81,7 @@ kFold = KFold (n_splits=k_fold, shuffle = True)
 
 
 print("-----------------------------------")
-
+dataset = dataset[:,0:500]
 #K-Fold loop
 for fold, (train_i, valid_i) in enumerate(kFold.split(dataset)):
   print(f"FOLD{fold}")
@@ -91,11 +91,12 @@ for fold, (train_i, valid_i) in enumerate(kFold.split(dataset)):
   valid_subsample = torch.utils.data.SubsetRandomSampler(valid_i)
 
   genotype_dataset = TensorDataset(torch.tensor(dataset, dtype=torch.float64))
+  #genotype_dataset = genotype_dataset[:,0:500]
   train_loader = DataLoader(genotype_dataset, batch_size = 10, sampler=train_subsample)
   valid_loader = DataLoader(genotype_dataset, batch_size = 10, sampler=valid_subsample)
 
   wandb_logger = pl.loggers.WandbLogger(project="Imputation Autoencoder Project")
-  model = autoencoder_model_1(264695)
+  model = autoencoder_model_1(500)
   trainer = pl.Trainer(
       logger=wandb_logger,    # W&B integration
       log_every_n_steps=1,    # set the logging frequency
@@ -117,7 +118,7 @@ for fold, (train_i, valid_i) in enumerate(kFold.split(dataset)):
       "epoch": 30,
       "batch_size": 10,
       "n_hidden_layers":8}
-  group_name = "cv_group_256_128_64_32"
+  group_name = "bin500_group_256_128_64_32"
   name=group_name+'_seed_'+str(np.random.randint(100000000))
   run=wandb.init(project="Imputation Autoencoder Project",save_code=False,
                 group=group_name,entity="connia",name=name,
