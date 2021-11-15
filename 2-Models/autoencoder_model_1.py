@@ -11,6 +11,7 @@ import pytorch_lightning as pl
 import torch.nn.functional as F
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
+import vcf_data_loader
 
 #Dataset preprocessing/Baselines 
 
@@ -38,16 +39,20 @@ def standardize (dataset):
 
 standardized_dataset = standardize(dataset)
 
+vcf = vcf_data_loader.FixedSizeVCFChunks("all_1kg_chr1_phased_GRCh38_snps_maf0.01.recode.vcf.gz", max_snps_per_chunk=5000, create = True)
+data = vcf.get_tensor_for_chunk_id(0)
 
 class autoencoder_model_1(pl.LightningModule):
     def __init__(self, input_dim, n_hidden=256, lr=1e-3):
         super().__init__()
-        self.encoder = nn.Sequential(nn.Linear(input_dim, n_hidden), nn.ReLU(), nn.Linear(n_hidden,128),nn.ReLU(), nn.Linear(128,64), nn.ReLU(), nn.Linear(64,32))
-        self.decoder = nn.Sequential(nn.Linear(32,64), nn.ReLU(),nn.Linear(64,128), nn.ReLU(), nn.Linear(128,n_hidden), nn.ReLU(), nn.Linear(n_hidden,input_dim))
+        self.encoder = nn.Sequential(nn.Linear(input_dim, n_hidden), nn.ReLU(), nn.Linear(n_hidden,128))
+        self.decoder = nn.Sequential(nn.ReLU(), nn.Linear(128,n_hidden), nn.ReLU(), nn.Linear(n_hidden,input_dim))
         self.double()
         self.save_hyperparameters()
+        self.dropout = nn.Dropout(0.25)
 
     def forward(self, features):
+        features = self.dropout(features)
         reconstruction = self.encoder(features)
         reconstruction = self.decoder(reconstruction)
         return reconstruction
@@ -66,11 +71,11 @@ class autoencoder_model_1(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.hparams["lr"])
+        return torch.optim.Adam(self.parameters(), lr=self.hparams["lr"],weight_decay=1e-5 )
 
 #Configurations
 k_fold = 5
-epochs = 15
+epochs = 30
 results = {}
 
 #Set seed number
@@ -81,7 +86,9 @@ kFold = KFold (n_splits=k_fold, shuffle = True)
 
 
 print("-----------------------------------")
-dataset = dataset[:,0:500]
+data = data[:,0:1000]
+genotype_dataset = TensorDataset(torch.tensor(data, dtype=torch.float64))
+
 #K-Fold loop
 for fold, (train_i, valid_i) in enumerate(kFold.split(dataset)):
   print(f"FOLD{fold}")
@@ -90,13 +97,12 @@ for fold, (train_i, valid_i) in enumerate(kFold.split(dataset)):
   train_subsample = torch.utils.data.SubsetRandomSampler(train_i)
   valid_subsample = torch.utils.data.SubsetRandomSampler(valid_i)
 
-  genotype_dataset = TensorDataset(torch.tensor(dataset, dtype=torch.float64))
-  #genotype_dataset = genotype_dataset[:,0:500]
-  train_loader = DataLoader(genotype_dataset, batch_size = 10, sampler=train_subsample)
-  valid_loader = DataLoader(genotype_dataset, batch_size = 10, sampler=valid_subsample)
+ # genotype_dataset = TensorDataset(torch.tensor(data, dtype=torch.float64))
+  train_loader = DataLoader(genotype_dataset, batch_size = 10, sampler=train_subsample, num_workers = 40)
+  valid_loader = DataLoader(genotype_dataset, batch_size = 10, sampler=valid_subsample, num_workers = 40)
 
   wandb_logger = pl.loggers.WandbLogger(project="Imputation Autoencoder Project")
-  model = autoencoder_model_1(500)
+  model = autoencoder_model_1(1000)
   trainer = pl.Trainer(
       logger=wandb_logger,    # W&B integration
       log_every_n_steps=1,    # set the logging frequency
@@ -118,7 +124,7 @@ for fold, (train_i, valid_i) in enumerate(kFold.split(dataset)):
       "epoch": 30,
       "batch_size": 10,
       "n_hidden_layers":8}
-  group_name = "bin500_group_256_128_64_32"
+  group_name = "bin1000_regularization_dropout_group_128"
   name=group_name+'_seed_'+str(np.random.randint(100000000))
   run=wandb.init(project="Imputation Autoencoder Project",save_code=False,
                 group=group_name,entity="connia",name=name,
