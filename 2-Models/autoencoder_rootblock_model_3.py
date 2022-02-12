@@ -14,7 +14,7 @@ import sys
 #Function to add the softmax of two overlapping blocks together
 def concat_softmax (first_block, second_block):
   x12 = torch.concat((first_block,second_block), dim = 1)
-  x12.view(-1,2,3,1000).sum(axis=1)
+  x12 = x12.view(-1,2,3,1000).sum(axis=1)
   return x12
 
 if __name__ == "__main__":
@@ -58,8 +58,8 @@ if __name__ == "__main__":
         predictions = torch.cat(tensors, dim=0)
 
         # Calculating accuracy and error for each block's output 
-        # Note there is a different process (no need for concat_softmax() call) f
-        #or blocks that do not need to be combined (first and last block)
+        # Note there is a different process (no need for concat_softmax() call) 
+        # for blocks that do not need to be combined (first and last block)
         losses = []
         if i == 0: 
             x1 = predictions[:,0:3000].view(-1, 3, 1000)
